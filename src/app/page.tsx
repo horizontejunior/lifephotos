@@ -1,11 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function MobileFeatures() {
   const [location, setLocation] = useState<string | null>(null);
   const [image, setImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [locationPermission, setLocationPermission] = useState<string | null>(null);
+  const [cameraPermission, setCameraPermission] = useState<string | null>(null);
+
+  // Verifica o status das permissões ao carregar o componente
+  useEffect(() => {
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: "geolocation" }).then((result) => {
+        setLocationPermission(result.state);
+      });
+
+      navigator.permissions.query({ name: "camera" as PermissionName }).then((result) => {
+        setCameraPermission(result.state);
+      });
+    }
+  }, []);
 
   // Solicita permissão e obtém a localização
   const requestLocation = () => {
@@ -20,8 +35,8 @@ export default function MobileFeatures() {
         setLocation(`Latitude: ${latitude}, Longitude: ${longitude}`);
         setError(null);
       },
-      (err) => {
-        setError("Você precisa permitir o acesso à localização para usar este recurso.");
+      () => {
+        setError("Permissão de localização negada. Verifique as configurações do seu dispositivo.");
       },
       { enableHighAccuracy: true }
     );
@@ -30,12 +45,11 @@ export default function MobileFeatures() {
   // Função para solicitar acesso à câmera e capturar uma imagem
   const requestCamera = async () => {
     try {
-      // Solicita permissão e acessa a câmera
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
 
       const video = document.createElement("video");
       video.srcObject = stream;
-      await video.play(); // Aguarda o vídeo carregar
+      await video.play();
 
       const canvas = document.createElement("canvas");
       canvas.width = video.videoWidth;
@@ -48,12 +62,13 @@ export default function MobileFeatures() {
       stream.getTracks().forEach((track) => track.stop()); // Fecha a câmera
       setError(null);
     } catch (err) {
-      setError("Você precisa permitir o acesso à câmera para usar este recurso.");
+      setError("Permissão da câmera negada. Verifique as configurações do seu dispositivo.");
     }
   };
 
   return (
     <div className="flex flex-col items-center space-y-4 p-4">
+      <p className="text-gray-700">Permissão de Localização: {locationPermission || "Desconhecida"}</p>
       <button
         onClick={requestLocation}
         className="px-4 py-2 bg-blue-500 text-white rounded"
@@ -62,6 +77,7 @@ export default function MobileFeatures() {
       </button>
       {location && <p>{location}</p>}
 
+      <p className="text-gray-700">Permissão da Câmera: {cameraPermission || "Desconhecida"}</p>
       <button
         onClick={requestCamera}
         className="px-4 py-2 bg-green-500 text-white rounded"
