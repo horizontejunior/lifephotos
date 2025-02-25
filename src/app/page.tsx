@@ -1,23 +1,26 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 
 export default function MobileFeatures() {
   const [location, setLocation] = useState<string | null>(null);
   const [image, setImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [locationPermission, setLocationPermission] = useState<string | null>(null);
-  const [cameraPermission, setCameraPermission] = useState<string | null>(null);
+  const [locationPermission, setLocationPermission] = useState<PermissionState | null>(null);
+  const [cameraPermission, setCameraPermission] = useState<PermissionState | null>(null);
 
   // Verifica o status das permissões ao carregar o componente
   useEffect(() => {
     if (navigator.permissions) {
       navigator.permissions.query({ name: "geolocation" }).then((result) => {
         setLocationPermission(result.state);
+        result.onchange = () => setLocationPermission(result.state);
       });
 
       navigator.permissions.query({ name: "camera" as PermissionName }).then((result) => {
         setCameraPermission(result.state);
+        result.onchange = () => setCameraPermission(result.state);
       });
     }
   }, []);
@@ -61,14 +64,16 @@ export default function MobileFeatures() {
 
       stream.getTracks().forEach((track) => track.stop()); // Fecha a câmera
       setError(null);
-    } catch (err) {
+    } catch (_err) {
       setError("Permissão da câmera negada. Verifique as configurações do seu dispositivo.");
     }
   };
 
   return (
     <div className="flex flex-col items-center space-y-4 p-4">
-      <p className="text-gray-700">Permissão de Localização: {locationPermission || "Desconhecida"}</p>
+      <p className="text-gray-700">
+        Permissão de Localização: {locationPermission || "Desconhecida"}
+      </p>
       <button
         onClick={requestLocation}
         className="px-4 py-2 bg-blue-500 text-white rounded"
@@ -77,14 +82,24 @@ export default function MobileFeatures() {
       </button>
       {location && <p>{location}</p>}
 
-      <p className="text-gray-700">Permissão da Câmera: {cameraPermission || "Desconhecida"}</p>
+      <p className="text-gray-700">
+        Permissão da Câmera: {cameraPermission || "Desconhecida"}
+      </p>
       <button
         onClick={requestCamera}
         className="px-4 py-2 bg-green-500 text-white rounded"
       >
         Abrir Câmera
       </button>
-      {image && <img src={image} alt="Captura da câmera" className="mt-4 w-64" />}
+      {image && (
+        <Image
+          src={image}
+          alt="Captura da câmera"
+          width={256}
+          height={256}
+          className="mt-4"
+        />
+      )}
 
       {error && <p className="text-red-500">{error}</p>}
     </div>
