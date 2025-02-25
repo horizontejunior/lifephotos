@@ -10,7 +10,6 @@ export default function MobileFeatures() {
   const [locationPermission, setLocationPermission] = useState<PermissionState | null>(null);
   const [cameraPermission, setCameraPermission] = useState<PermissionState | null>(null);
 
-  // Verifica o status das permissões ao carregar o componente
   useEffect(() => {
     if (navigator.permissions) {
       navigator.permissions.query({ name: "geolocation" }).then((result) => {
@@ -25,7 +24,6 @@ export default function MobileFeatures() {
     }
   }, []);
 
-  // Solicita permissão e obtém a localização
   const requestLocation = () => {
     if (!navigator.geolocation) {
       setError("Seu dispositivo não suporta geolocalização.");
@@ -45,27 +43,12 @@ export default function MobileFeatures() {
     );
   };
 
-  // Função para solicitar acesso à câmera e capturar uma imagem
-  const requestCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-
-      const video = document.createElement("video");
-      video.srcObject = stream;
-      await video.play();
-
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d");
-
-      ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      setImage(canvas.toDataURL("image/png"));
-
-      stream.getTracks().forEach((track) => track.stop()); // Fecha a câmera
-      setError(null);
-    } catch (_err) {
-      setError("Permissão da câmera negada. Verifique as configurações do seu dispositivo." + _err);
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => setImage(reader.result as string);
+      reader.readAsDataURL(file);
     }
   };
 
@@ -85,12 +68,23 @@ export default function MobileFeatures() {
       <p className="text-gray-700">
         Permissão da Câmera: {cameraPermission || "Desconhecida"}
       </p>
-      <button
-        onClick={requestCamera}
-        className="px-4 py-2 bg-green-500 text-white rounded"
+
+      {/* Input para abrir a câmera do celular */}
+      <input
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleFileChange}
+        className="hidden"
+        id="cameraInput"
+      />
+      <label
+        htmlFor="cameraInput"
+        className="px-4 py-2 bg-green-500 text-white rounded cursor-pointer"
       >
         Abrir Câmera
-      </button>
+      </label>
+
       {image && (
         <Image
           src={image}
