@@ -65,7 +65,7 @@ export default function MobileFeatures() {
       stream.getTracks().forEach((track) => track.stop()); // Fecha a câmera
       setError(null);
     } catch (_err) {
-      setError("Permissão da câmera negada. Verifique as configurações do seu dispositivo.");
+      setError("Permissão da câmera negada. Verifique as configurações do seu dispositivo." + _err);
     }
   };
 
