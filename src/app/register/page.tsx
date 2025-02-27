@@ -28,7 +28,7 @@ export default function RegisterPage() {
       setMessage(data.error);
     } else {
       setMessage("Cadastro realizado com sucesso!");
-      setTimeout(() => router.push("/login"), 1500);
+      setTimeout(() => router.push("/"), 1000);
     }
   };
 
