@@ -25,7 +25,7 @@ export default function ChooseStation() {
         .select("name, latitude, longitude");
 
       if (error) {
-        console.error("Erro ao buscar estações:", error);
+        console.error("Erro ao buscar postos:", error);
         setStations([]); // Garante que o estado não fique indefinido
       } else if (data) {
         setStations(data);
@@ -35,6 +35,10 @@ export default function ChooseStation() {
     fetchStations();
   }, []);
 
+  const handleSelectStation = (station: Station) => {
+    sessionStorage.setItem("station", JSON.stringify(station));
+  };
+
   return (
     <div className="p-4 max-w-xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">Escolha um posto de guarda-vidas</h1>
@@ -43,8 +47,8 @@ export default function ChooseStation() {
           stations.map((station, index) => (
             <li key={index}>
               <Link
-                href={`https://www.google.com/maps?q=${station.latitude},${station.longitude}`}
-                target="_blank"
+                href="/takePicture"
+                onClick={() => handleSelectStation(station) }
                 className="text-blue-500 hover:underline"
               >
                 {station.name}
