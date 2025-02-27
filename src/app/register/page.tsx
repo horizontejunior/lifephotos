@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
-export default function LoginPage() {
-  const [form, setForm] = useState({ email: "", password: "" });
+export default function RegisterPage() {
+  const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [message, setMessage] = useState("");
   const router = useRouter();
 
@@ -17,7 +16,7 @@ export default function LoginPage() {
     e.preventDefault();
     setMessage("");
 
-    const res = await fetch("/api/login", {
+    const res = await fetch("/api/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
@@ -28,17 +27,27 @@ export default function LoginPage() {
     if (data.error) {
       setMessage(data.error);
     } else {
-      setMessage("Login realizado com sucesso!");
-      setTimeout(() => router.push("/dashboard"), 1500);
+      setMessage("Cadastro realizado com sucesso!");
+      setTimeout(() => router.push("/login"), 1500);
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-lg max-w-sm w-full">
-        <h2 className="text-2xl font-bold text-center mb-4">Login</h2>
+        <h2 className="text-2xl font-bold text-center mb-4">Cadastro</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="text"
+            name="name"
+            placeholder="Nome"
+            value={form.name}
+            onChange={handleChange}
+            required
+            className="w-full px-4 py-2 border rounded-md"
+          />
+
           <input
             type="email"
             name="email"
@@ -59,20 +68,12 @@ export default function LoginPage() {
             className="w-full px-4 py-2 border rounded-md"
           />
 
-          <button type="submit" className="w-full bg-green-500 text-white py-2 rounded-md">
-            Entrar
+          <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-md">
+            Cadastrar
           </button>
         </form>
 
         {message && <p className="mt-4 text-center text-red-500">{message}</p>}
-
-        {/* Link para a página de cadastro */}
-        <p className="mt-4 text-center text-gray-600">
-          Ainda não tem conta?{" "}
-          <Link href="/register" className="text-blue-500 hover:underline">
-            Crie aqui
-          </Link>
-        </p>
       </div>
     </div>
   );
