@@ -31,6 +31,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ message: "Usuário cadastrado com sucesso!", user: data });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     return NextResponse.json({ status: 500 });
   }

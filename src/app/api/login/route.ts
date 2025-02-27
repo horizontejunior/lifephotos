@@ -26,7 +26,8 @@ export async function POST(req: Request) {
 
     // Criar a sessão do usuário (simplificado, sem JWT)
     return NextResponse.json({ message: "Login realizado com sucesso!", user });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
-    return NextResponse.json({ status: 500 });
+    return NextResponse.json({error: "Check the info"}, { status: 500 });
   }
 }
