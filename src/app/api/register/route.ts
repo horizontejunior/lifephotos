@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ message: "Usuário cadastrado com sucesso!", user: data });
-  } catch (error:unknown) {
+  } catch (error) {
     return NextResponse.json({ status: 500 });
   }
 }

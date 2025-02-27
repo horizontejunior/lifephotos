@@ -26,7 +26,7 @@ export async function POST(req: Request) {
 
     // Criar a sessão do usuário (simplificado, sem JWT)
     return NextResponse.json({ message: "Login realizado com sucesso!", user });
-  } catch (error:unknown) {
+  } catch (error) {
     return NextResponse.json({ status: 500 });
   }
 }
