@@ -64,7 +64,7 @@ export default function ChooseStation() {
         const { latitude, longitude } = position.coords;
         const distance = calculateDistance(latitude, longitude, station.latitude, station.longitude);
 
-        if (distance <= 50) {
+        if (distance <= 500) {
           setSelectedStation(station);
           fileInputRef.current?.click(); // Abre a câmera do celular
         } else {
@@ -98,7 +98,7 @@ export default function ChooseStation() {
 
     const imageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/photos/${fileName}`;
     
-    const { error: dbError } = await supabase.from("photo_logs").insert([
+    const { error: dbError } = await supabase.from("photos").insert([
       {
         station_name: selectedStation.name,
         timestamp: new Date().toISOString(),
