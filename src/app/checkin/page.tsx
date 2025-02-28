@@ -1,7 +1,7 @@
-"use client"
+"use client";
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 // Configuração do Supabase
 const supabase = createClient(
@@ -16,7 +16,9 @@ interface Station {
 }
 
 export default function ChooseStation() {
+  const router = useRouter();
   const [stations, setStations] = useState<Station[]>([]);
+  const [, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchStations() {
@@ -26,7 +28,7 @@ export default function ChooseStation() {
 
       if (error) {
         console.error("Erro ao buscar postos:", error);
-        setStations([]); // Garante que o estado não fique indefinido
+        setStations([]); 
       } else if (data) {
         setStations(data);
       }
@@ -35,8 +37,47 @@ export default function ChooseStation() {
     fetchStations();
   }, []);
 
+  // Função para calcular a distância entre duas coordenadas (Fórmula de Haversine)
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371e3; // Raio da Terra em metros
+    const toRadians = (degree: number) => (degree * Math.PI) / 180;
+
+    const dLat = toRadians(lat2 - lat1);
+    const dLon = toRadians(lon2 - lon1);
+    
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Retorna a distância em metros
+  };
+
   const handleSelectStation = (station: Station) => {
     sessionStorage.setItem("station", JSON.stringify(station));
+
+    if (!navigator.geolocation) {
+      setError("Seu dispositivo não suporta geolocalização.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const distance = calculateDistance(latitude, longitude, station.latitude, station.longitude);
+
+        if (distance <= 50) {
+          router.push("/takePicture"); // Dentro do raio, permite tirar a foto
+        } else {
+          alert(`Você está a ${distance.toFixed(2)} metros do posto. Aproxime-se para tirar a foto.`);
+        }
+      },
+      () => {
+        setError("Permissão de localização negada. Verifique as configurações do seu dispositivo.");
+      },
+      { enableHighAccuracy: true }
+    );
   };
 
   return (
@@ -46,13 +87,12 @@ export default function ChooseStation() {
         {stations.length > 0 ? (
           stations.map((station, index) => (
             <li key={index}>
-              <Link
-                href="/takePicture"
-                onClick={() => handleSelectStation(station) }
+              <button
+                onClick={() => handleSelectStation(station)}
                 className="text-blue-500 hover:underline"
               >
                 {station.name}
-              </Link>
+              </button>
             </li>
           ))
         ) : (

@@ -1,16 +1,19 @@
 "use client"
 import { useEffect, useState } from "react";
 
-export default function Prevention() {
+export default function TakePicture() {
   const [station, setStation] = useState<{ name: string; latitude: number; longitude: number } | null>(null);
 
   useEffect(() => {
     const storedStation = sessionStorage.getItem("station");
     if (storedStation) {
       setStation(JSON.parse(storedStation));
+      
     }
   }, []);
 
+
+  
   if (!station) return <p>Carregando...</p>;
 
   return (
