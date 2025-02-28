@@ -104,6 +104,7 @@ export default function ChooseStation() {
         timestamp: new Date().toISOString(),
         photo_url: imageUrl,
       },
+      console.log("chegou aqui")
     ]);
 
     if (dbError) {
