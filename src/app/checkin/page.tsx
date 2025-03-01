@@ -64,7 +64,7 @@ export default function ChooseStation() {
         const { latitude, longitude } = position.coords;
         const distance = calculateDistance(latitude, longitude, station.latitude, station.longitude);
 
-        if (distance <= 500) {
+        if (distance <= 50) {
           setSelectedStation(station);
           fileInputRef.current?.click(); // Abre a câmera do celular
         } else {
