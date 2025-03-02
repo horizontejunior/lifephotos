@@ -38,7 +38,7 @@ export default function ChooseStation() {
   }, []);
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371e3; // Raio da Terra em metros
+    const R = 6371e3;
     const toRadians = (degree: number) => (degree * Math.PI) / 180;
 
     const dLat = toRadians(lat2 - lat1);
@@ -50,7 +50,7 @@ export default function ChooseStation() {
       Math.sin(dLon / 2) * Math.sin(dLon / 2);
     
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c; // Retorna a distância em metros
+    return R * c;
   };
 
   const handleSelectStation = (station: Station) => {
@@ -66,7 +66,7 @@ export default function ChooseStation() {
 
         if (distance <= 50) {
           setSelectedStation(station);
-          fileInputRef.current?.click(); // Abre a câmera do celular
+          fileInputRef.current?.click();
         } else {
           alert(`Você está a ${distance.toFixed(2)} metros do posto. Aproxime-se para tirar a foto.`);
         }
@@ -84,34 +84,45 @@ export default function ChooseStation() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const fileName = `photo-${Date.now()}.jpg`;
-    const { error } = await supabase.storage
-      .from("photos") // Nome do bucket no Supabase
-      .upload(fileName, file, {
-        contentType: "image/jpeg",
-      });
+    try {
+      const sanitizedStationName = selectedStation.name
+        .replace(/\s+/g, '_')
+        .toLowerCase();
 
-    if (error) {
-      console.error("Erro ao salvar imagem:", error.message);
-      return;
-    }
+      const timestamp = new Date().getTime();
+      const fileName = `${sanitizedStationName}_${timestamp}.jpg`;
 
-    const imageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/photos/${fileName}`;
-    
-    const { error: dbError } = await supabase.from("photos").insert([
-      {
+      // Upload para o Storage
+      const { error: uploadError } = await supabase.storage
+        .from("photos")
+        .upload(fileName, file, {
+          contentType: file.type,
+          cacheControl: '3600',
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Obter URL pública
+      const { data: urlData } = supabase.storage
+        .from('photos')
+        .getPublicUrl(fileName);
+
+      // Inserir metadados no banco
+      const { error: dbError } = await supabase.from("photos").insert([{
         station_name: selectedStation.name,
         timestamp: new Date().toISOString(),
-        photo_url: imageUrl,
-      },
-      console.log("chegou aqui")
-    ]);
+        photo_url: urlData.publicUrl
+      }]);
 
-    if (dbError) {
-      console.error("Erro ao salvar no banco:", dbError.message);
-    } else {
+      if (dbError) throw dbError;
+
       alert("Foto salva com sucesso!");
       setSelectedStation(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      
+    } catch (error) {
+      console.error("Erro no processo de upload:", error);
+      alert("Erro ao salvar a foto. Tente novamente.");
     }
   };
 
@@ -136,7 +147,6 @@ export default function ChooseStation() {
         )}
       </ul>
 
-      {/* Input invisível para abrir a câmera */}
       <input
         type="file"
         accept="image/*"
