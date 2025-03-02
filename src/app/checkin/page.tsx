@@ -36,7 +36,7 @@ export default function ChooseStation() {
 
     fetchStations();
   }, []);
-  
+
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371e3;
     const φ1 = lat1 * Math.PI/180;
@@ -72,7 +72,7 @@ export default function ChooseStation() {
         station.longitude
       );
 
-      if (distance > 50) {
+      if (distance > 500) {
         alert(`Distância do posto: ${distance.toFixed(1)} metros. Aproxime-se!`);
         return;
       }
