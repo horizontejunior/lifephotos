@@ -19,7 +19,7 @@ export default function ChooseStation() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     const fetchStations = async () => {
@@ -74,8 +74,15 @@ export default function ChooseStation() {
         return;
       }
 
+      // Forçar novo input file para dispositivos iOS
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      
       setSelectedStation(station);
-      setTimeout(() => fileInputRef.current?.click(), 300); // Delay para compatibilidade com iOS
+      setTimeout(() => {
+        if (fileInputRef.current) {
+          fileInputRef.current.click();
+        }
+      }, 100);
 
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido na geolocalização");
@@ -85,13 +92,10 @@ export default function ChooseStation() {
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!selectedStation || !event.target.files?.[0]) return;
 
-    setIsUploading(true);
-    setError(null);
-    setSuccessMessage(null);
-
+    setIsProcessing(true);
+    const file = event.target.files[0];
+    
     try {
-      const file = event.target.files[0];
-      
       // Sanitização do nome do arquivo
       const cleanStationName = selectedStation.name
         .replace(/[^a-zA-Z0-9]/g, '_')
@@ -131,13 +135,12 @@ export default function ChooseStation() {
       console.error(err);
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
-      setIsUploading(false);
-      setSelectedStation(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      // Delay para garantir que o iOS processe o upload
       setTimeout(() => {
-        setSuccessMessage(null);
-        setError(null);
-      }, 5000);
+        setIsProcessing(false);
+        setSelectedStation(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }, 1000);
     }
   };
 
@@ -163,7 +166,7 @@ export default function ChooseStation() {
             <button
               onClick={() => handleSelectStation(station)}
               className="w-full p-3 text-left bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-              disabled={isUploading}
+              disabled={isProcessing}
             >
               {station.name}
             </button>
@@ -178,12 +181,12 @@ export default function ChooseStation() {
         ref={fileInputRef}
         onChange={handleFileChange}
         className="hidden"
-        disabled={isUploading}
+        disabled={isProcessing}
       />
 
-      {isUploading && (
+      {isProcessing && (
         <div className="mt-4 p-3 bg-blue-50 text-blue-700 rounded-lg">
-          ⏳ Enviando foto...
+          ⏳ Processando foto...
         </div>
       )}
     </div>
