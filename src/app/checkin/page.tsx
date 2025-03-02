@@ -19,21 +19,22 @@ export default function ChooseStation() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
-    async function fetchStations() {
-      const { data, error } = await supabase
-        .from("station")
-        .select("name, latitude, longitude");
-
-      if (error) {
-        console.error("Erro ao buscar postos:", error);
-        setStations([]);
-      } else if (data) {
-        setStations(data);
+    const fetchStations = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("station")
+          .select("name, latitude, longitude");
+        
+        if (error) throw error;
+        setStations(data || []);
+      } catch (err) {
+        console.error("Erro ao carregar postos:", err);
+        setError("Falha ao carregar postos. Tente recarregar a página.");
       }
-    }
-
+    };
     fetchStations();
   }, []);
 
@@ -41,28 +42,24 @@ export default function ChooseStation() {
     const R = 6371e3;
     const φ1 = lat1 * Math.PI/180;
     const φ2 = lat2 * Math.PI/180;
-    const Δφ = (lat2-lat1) * Math.PI/180;
-    const Δλ = (lon2-lon1) * Math.PI/180;
+    const Δφ = (lat2 - lat1) * Math.PI/180;
+    const Δλ = (lon2 - lon1) * Math.PI/180;
 
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const a = Math.sin(Δφ/2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
   const handleSelectStation = async (station: Station) => {
-    if (!navigator.geolocation) {
-      setError("Geolocalização não suportada pelo navegador");
-      return;
-    }
+    setError(null);
+    setSuccessMessage(null);
 
     try {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0
-        });
+        navigator.geolocation.getCurrentPosition(
+          resolve,
+          err => reject(err.message),
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
       });
 
       const distance = calculateDistance(
@@ -72,77 +69,101 @@ export default function ChooseStation() {
         station.longitude
       );
 
-      if (distance > 500) {
-        alert(`Distância do posto: ${distance.toFixed(1)} metros. Aproxime-se!`);
+      if (distance > 50) {
+        alert(`Você está a ${distance.toFixed(1)} metros do posto.`);
         return;
       }
 
       setSelectedStation(station);
-      setTimeout(() => fileInputRef.current?.click(), 100); // Delay para garantir renderização
-      
+      setTimeout(() => fileInputRef.current?.click(), 300); // Delay para compatibilidade com iOS
+
     } catch (err) {
-      setError("Erro ao obter localização: " + (err instanceof Error ? err.message : ''));
+      setError(err instanceof Error ? err.message : "Erro desconhecido na geolocalização");
     }
   };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!selectedStation || !event.target.files?.[0]) return;
 
-    const file = event.target.files[0];
+    setIsUploading(true);
     setError(null);
     setSuccessMessage(null);
 
     try {
-      // Gerar nome do arquivo
-      const fileName = `${selectedStation.name.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.${file.type.split('/')[1]}`;
+      const file = event.target.files[0];
+      
+      // Sanitização do nome do arquivo
+      const cleanStationName = selectedStation.name
+        .replace(/[^a-zA-Z0-9]/g, '_')
+        .toLowerCase();
+      
+      const fileName = `${cleanStationName}_${Date.now()}.${file.type.split('/')[1] || 'jpg'}`;
 
-      // Fazer upload
+      // Upload para o Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('photos')
-        .upload(fileName, file, { contentType: file.type });
+        .upload(fileName, file, {
+          contentType: file.type,
+          cacheControl: 'public, max-age=31536000',
+        });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) throw new Error(`Erro no upload: ${uploadError.message}`);
 
-      // Obter URL e salvar no banco
+      // Obter URL pública
       const { data: urlData } = supabase.storage
         .from('photos')
         .getPublicUrl(fileName);
 
-      const { error: dbError } = await supabase.from('photos').insert({
-        station_name: selectedStation.name,
-        photo_url: urlData.publicUrl,
-        timestamp: new Date().toISOString()
-      });
+      // Registrar no banco de dados
+      const { error: dbError } = await supabase
+        .from('photos')
+        .insert([{
+          station_name: selectedStation.name,
+          photo_url: urlData.publicUrl,
+          timestamp: new Date().toISOString()
+        }]);
 
-      if (dbError) throw dbError;
+      if (dbError) throw new Error(`Erro no banco de dados: ${dbError.message}`);
 
-      // Feedback visual
       setSuccessMessage('Foto registrada com sucesso!');
-      setTimeout(() => setSuccessMessage(null), 5000);
-
+      
     } catch (err) {
       console.error(err);
-      setError('Falha ao enviar foto. Tente novamente.');
+      setError(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
-      // Resetar estados sem fechar a página
+      setIsUploading(false);
       setSelectedStation(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      setTimeout(() => {
+        setSuccessMessage(null);
+        setError(null);
+      }, 5000);
     }
   };
 
   return (
     <div className="p-4 max-w-xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Selecione um posto</h1>
+      <h1 className="text-2xl font-bold mb-4">Postos de Guarda-Vidas</h1>
       
-      {error && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">{error}</div>}
-      {successMessage && <div className="mb-4 p-3 bg-green-100 text-green-700 rounded">{successMessage}</div>}
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
+          ⚠️ {error}
+        </div>
+      )}
+      
+      {successMessage && (
+        <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-lg">
+          ✅ {successMessage}
+        </div>
+      )}
 
-      <ul className="space-y-2">
+      <ul className="space-y-3">
         {stations.map((station, index) => (
           <li key={index}>
             <button
               onClick={() => handleSelectStation(station)}
-              className="w-full text-left p-2 hover:bg-blue-50 rounded"
+              className="w-full p-3 text-left bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+              disabled={isUploading}
             >
               {station.name}
             </button>
@@ -157,7 +178,14 @@ export default function ChooseStation() {
         ref={fileInputRef}
         onChange={handleFileChange}
         className="hidden"
+        disabled={isUploading}
       />
+
+      {isUploading && (
+        <div className="mt-4 p-3 bg-blue-50 text-blue-700 rounded-lg">
+          ⏳ Enviando foto...
+        </div>
+      )}
     </div>
   );
 }
