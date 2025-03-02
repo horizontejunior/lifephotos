@@ -2,7 +2,6 @@
 import { useEffect, useState, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-// Configuração do Supabase
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -17,7 +16,8 @@ interface Station {
 export default function ChooseStation() {
   const [stations, setStations] = useState<Station[]>([]);
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
-  const [, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -36,115 +36,118 @@ export default function ChooseStation() {
 
     fetchStations();
   }, []);
-
+  
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371e3;
-    const toRadians = (degree: number) => (degree * Math.PI) / 180;
+    const φ1 = lat1 * Math.PI/180;
+    const φ2 = lat2 * Math.PI/180;
+    const Δφ = (lat2-lat1) * Math.PI/180;
+    const Δλ = (lon2-lon1) * Math.PI/180;
 
-    const dLat = toRadians(lat2 - lat1);
-    const dLon = toRadians(lon2 - lon1);
-    
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   };
 
-  const handleSelectStation = (station: Station) => {
+  const handleSelectStation = async (station: Station) => {
     if (!navigator.geolocation) {
-      setError("Seu dispositivo não suporta geolocalização.");
+      setError("Geolocalização não suportada pelo navegador");
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        const distance = calculateDistance(latitude, longitude, station.latitude, station.longitude);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0
+        });
+      });
 
-        if (distance <= 50) {
-          setSelectedStation(station);
-          fileInputRef.current?.click();
-        } else {
-          alert(`Você está a ${distance.toFixed(2)} metros do posto. Aproxime-se para tirar a foto.`);
-        }
-      },
-      () => {
-        setError("Permissão de localização negada. Verifique as configurações do seu dispositivo.");
-      },
-      { enableHighAccuracy: true }
-    );
+      const distance = calculateDistance(
+        position.coords.latitude,
+        position.coords.longitude,
+        station.latitude,
+        station.longitude
+      );
+
+      if (distance > 50) {
+        alert(`Distância do posto: ${distance.toFixed(1)} metros. Aproxime-se!`);
+        return;
+      }
+
+      setSelectedStation(station);
+      setTimeout(() => fileInputRef.current?.click(), 100); // Delay para garantir renderização
+      
+    } catch (err) {
+      setError("Erro ao obter localização: " + (err instanceof Error ? err.message : ''));
+    }
   };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!selectedStation) return;
+    if (!selectedStation || !event.target.files?.[0]) return;
 
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const file = event.target.files[0];
+    setError(null);
+    setSuccessMessage(null);
 
     try {
-      const sanitizedStationName = selectedStation.name
-        .replace(/\s+/g, '_')
-        .toLowerCase();
+      // Gerar nome do arquivo
+      const fileName = `${selectedStation.name.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.${file.type.split('/')[1]}`;
 
-      const timestamp = new Date().getTime();
-      const fileName = `${sanitizedStationName}_${timestamp}.jpg`;
-
-      // Upload para o Storage
+      // Fazer upload
       const { error: uploadError } = await supabase.storage
-        .from("photos")
-        .upload(fileName, file, {
-          contentType: file.type,
-          cacheControl: '3600',
-        });
+        .from('photos')
+        .upload(fileName, file, { contentType: file.type });
 
       if (uploadError) throw uploadError;
 
-      // Obter URL pública
+      // Obter URL e salvar no banco
       const { data: urlData } = supabase.storage
         .from('photos')
         .getPublicUrl(fileName);
 
-      // Inserir metadados no banco
-      const { error: dbError } = await supabase.from("photos").insert([{
+      const { error: dbError } = await supabase.from('photos').insert({
         station_name: selectedStation.name,
-        timestamp: new Date().toISOString(),
-        photo_url: urlData.publicUrl
-      }]);
+        photo_url: urlData.publicUrl,
+        timestamp: new Date().toISOString()
+      });
 
       if (dbError) throw dbError;
 
-      alert("Foto salva com sucesso!");
+      // Feedback visual
+      setSuccessMessage('Foto registrada com sucesso!');
+      setTimeout(() => setSuccessMessage(null), 5000);
+
+    } catch (err) {
+      console.error(err);
+      setError('Falha ao enviar foto. Tente novamente.');
+    } finally {
+      // Resetar estados sem fechar a página
       setSelectedStation(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
-      
-    } catch (error) {
-      console.error("Erro no processo de upload:", error);
-      alert("Erro ao salvar a foto. Tente novamente.");
     }
   };
 
   return (
     <div className="p-4 max-w-xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Escolha um posto de guarda-vidas</h1>
+      <h1 className="text-2xl font-bold mb-4">Selecione um posto</h1>
       
+      {error && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">{error}</div>}
+      {successMessage && <div className="mb-4 p-3 bg-green-100 text-green-700 rounded">{successMessage}</div>}
+
       <ul className="space-y-2">
-        {stations.length > 0 ? (
-          stations.map((station, index) => (
-            <li key={index}>
-              <button
-                onClick={() => handleSelectStation(station)}
-                className="text-blue-500 hover:underline"
-              >
-                {station.name}
-              </button>
-            </li>
-          ))
-        ) : (
-          <p className="text-gray-500">Nenhum posto encontrado.</p>
-        )}
+        {stations.map((station, index) => (
+          <li key={index}>
+            <button
+              onClick={() => handleSelectStation(station)}
+              className="w-full text-left p-2 hover:bg-blue-50 rounded"
+            >
+              {station.name}
+            </button>
+          </li>
+        ))}
       </ul>
 
       <input
