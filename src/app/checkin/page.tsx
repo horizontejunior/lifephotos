@@ -69,7 +69,7 @@ export default function ChooseStation() {
         station.longitude
       );
 
-      if (distance > 50) {
+      if (distance > 800) {
         alert(`Você está a ${distance.toFixed(1)} metros do posto.`);
         return;
       }
