@@ -8,6 +8,7 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [message, setMessage] = useState("");
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -16,7 +17,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage("");
-
+    setIsLoading(true);
     const res = await fetch("/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -29,13 +30,14 @@ export default function LoginPage() {
       setMessage(data.error);
     } else {
       setMessage("Login realizado com sucesso!");
-      setTimeout(() => router.push("/dashboard"), 1500);
+      router.push("/dashboard");
     }
+    setIsLoading(false);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-lg max-w-sm w-full">
+    <div className="min-h-screen flex items-center justify-center ">
+      <div className="bg-background p-8 rounded-lg shadow-lg max-w-sm w-full">
         <h2 className="text-2xl font-bold text-center mb-4">Login</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -59,7 +61,11 @@ export default function LoginPage() {
             className="w-full px-4 py-2 border rounded-md"
           />
 
-          <button type="submit" className="w-full bg-green-500 text-white py-2 rounded-md">
+          <button
+            type="submit"
+            className="w-full bg-green-500 text-white py-2 rounded-md"
+            disabled={isLoading}
+          >
             Entrar
           </button>
         </form>

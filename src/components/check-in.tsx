@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useState, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -13,86 +13,26 @@ interface Station {
   longitude: number;
 }
 
-export default function ChooseStation() {
-  const [stations, setStations] = useState<Station[]>([]);
+export const CheckIn = ({ distance }: { distance: number }) => {
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  useEffect(() => {
-    const fetchStations = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("station")
-          .select("name, latitude, longitude");
-
-        if (error) throw error;
-        setStations(data || []);
-      } catch (err) {
-        console.error("Erro ao carregar postos:", err);
-        setError("Falha ao carregar postos. Tente recarregar a página.");
-      }
-    };
-    fetchStations();
-  }, []);
-
-  const calculateDistance = (
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number
-  ) => {
-    const R = 6371e3;
-    const φ1 = (lat1 * Math.PI) / 180;
-    const φ2 = (lat2 * Math.PI) / 180;
-    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-    const a =
-      Math.sin(Δφ / 2) ** 2 +
-      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  };
-
-  const handleSelectStation = async (station: Station) => {
+  const handleSelectStation = async () => {
     setError(null);
     setSuccessMessage(null);
 
     try {
-      const position = await new Promise<GeolocationPosition>(
-        (resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(
-            resolve,
-            (err) => reject(err.message),
-            { enableHighAccuracy: true, timeout: 10000 }
-          );
-        }
-      );
-
-      const distance = calculateDistance(
-        position.coords.latitude,
-        position.coords.longitude,
-        station.latitude,
-        station.longitude
-      );
-
-      if (distance > 800) {
-        alert(`Você está a ${distance.toFixed(1)} metros do posto.`);
-        return;
-      }
-
       // Forçar novo input file para dispositivos iOS
       if (fileInputRef.current) fileInputRef.current.value = "";
 
-      setSelectedStation(station);
-      // setTimeout(() => {
-      //   if (fileInputRef.current) {
-      //     fileInputRef.current.click();
-      //   }
-      // }, 100);
-      fileInputRef.current?.click();
+      setTimeout(() => {
+        if (fileInputRef.current) {
+          fileInputRef.current.click();
+        }
+      }, 100);
     } catch (err) {
       setError(
         err instanceof Error
@@ -163,8 +103,14 @@ export default function ChooseStation() {
   };
 
   return (
-    <div className="p-4 max-w-xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Postos de Guarda-Vidas</h1>
+    <div className="mt-4">
+      <button
+        onClick={handleSelectStation}
+        className="bg-blue-500 text-white px-4 py-2 rounded-md disabled:opacity-50"
+        disabled={!!(distance && 800 <= distance) || !distance}
+      >
+        Check-In
+      </button>
 
       {error && (
         <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
@@ -177,20 +123,6 @@ export default function ChooseStation() {
           ✅ {successMessage}
         </div>
       )}
-
-      <ul className="space-y-3">
-        {stations.map((station, index) => (
-          <li key={index}>
-            <button
-              onClick={() => handleSelectStation(station)}
-              className="w-full p-3 text-left bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-              disabled={isProcessing}
-            >
-              {station.name}
-            </button>
-          </li>
-        ))}
-      </ul>
 
       <input
         type="file"
@@ -208,4 +140,4 @@ export default function ChooseStation() {
       )}
     </div>
   );
-}
+};
