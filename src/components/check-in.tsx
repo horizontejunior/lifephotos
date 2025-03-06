@@ -7,18 +7,18 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-interface Station {
-  name: string;
-  latitude: number;
-  longitude: number;
-}
-
 export const CheckIn = ({ distance }: { distance: number }) => {
-  const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Em uma implementação real, a estação pode ser obtida via geolocalização ou outro método.
+  const defaultStation = {
+    name: "default_station",
+    latitude: 0,
+    longitude: 0,
+  };
 
   const handleSelectStation = async () => {
     setError(null);
@@ -27,7 +27,6 @@ export const CheckIn = ({ distance }: { distance: number }) => {
     try {
       // Forçar novo input file para dispositivos iOS
       if (fileInputRef.current) fileInputRef.current.value = "";
-
       setTimeout(() => {
         if (fileInputRef.current) {
           fileInputRef.current.click();
@@ -45,17 +44,17 @@ export const CheckIn = ({ distance }: { distance: number }) => {
   const handleFileChange = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
-    if (!selectedStation || !event.target.files?.[0]) return;
+    // Se não houver arquivo, não processa
+    if (!event.target.files?.[0]) return;
 
     setIsProcessing(true);
     const file = event.target.files[0];
 
     try {
       // Sanitização do nome do arquivo
-      const cleanStationName = selectedStation.name
+      const cleanStationName = defaultStation.name
         .replace(/[^a-zA-Z0-9]/g, "_")
         .toLowerCase();
-
       const fileName = `${cleanStationName}_${Date.now()}.${
         file.type.split("/")[1] || "jpg"
       }`;
@@ -67,11 +66,12 @@ export const CheckIn = ({ distance }: { distance: number }) => {
           contentType: file.type,
           cacheControl: "public, max-age=31536000",
         });
-
+      console.log("passou aqui");
+      
       if (uploadError)
         throw new Error(`Erro no upload: ${uploadError.message}`);
 
-      // Obter URL pública
+      // Obter URL pública (sincrônico)
       const { data: urlData } = supabase.storage
         .from("photos")
         .getPublicUrl(fileName);
@@ -79,7 +79,7 @@ export const CheckIn = ({ distance }: { distance: number }) => {
       // Registrar no banco de dados
       const { error: dbError } = await supabase.from("photos").insert([
         {
-          station_name: selectedStation.name,
+          station_name: defaultStation.name,
           photo_url: urlData.publicUrl,
           timestamp: new Date().toISOString(),
         },
@@ -96,7 +96,6 @@ export const CheckIn = ({ distance }: { distance: number }) => {
       // Delay para garantir que o iOS processe o upload
       setTimeout(() => {
         setIsProcessing(false);
-        setSelectedStation(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
       }, 1000);
     }
@@ -127,6 +126,7 @@ export const CheckIn = ({ distance }: { distance: number }) => {
       <input
         type="file"
         accept="image/*"
+        capture="user"  // Força o uso da câmera
         ref={fileInputRef}
         onChange={handleFileChange}
         className="hidden"
