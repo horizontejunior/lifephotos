@@ -44,37 +44,40 @@ export const CheckIn = ({ distance }: { distance: number }) => {
   const handleFileChange = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
-    // Se não houver arquivo, não processa
     if (!event.target.files?.[0]) return;
-
+  
     setIsProcessing(true);
     const file = event.target.files[0];
-
+  
     try {
-      // Sanitização do nome do arquivo
+      // Verifica se file.type está definido; se não, usa "jpg"
+      const mimeType = file.type || "image/jpeg";
+      // Tenta extrair a extensão do file.name, se houver
+      const extFromName = file.name.split(".").pop()?.toLowerCase();
+      const ext = extFromName || mimeType.split("/")[1] || "jpg";
+  
+      // Sanitiza o nome da estação e constrói o nome do arquivo
       const cleanStationName = defaultStation.name
         .replace(/[^a-zA-Z0-9]/g, "_")
         .toLowerCase();
-      const fileName = `${cleanStationName}_${Date.now()}.${
-        file.type.split("/")[1] || "jpg"
-      }`;
-
+      const fileName = `${cleanStationName}_${Date.now()}.${ext}`;
+  
       // Upload para o Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from("photos")
         .upload(fileName, file, {
-          contentType: file.type,
+          contentType: mimeType,
           cacheControl: "public",
         });
-           
+  
       if (uploadError)
         throw new Error(`Erro no upload: ${uploadError.message}`);
-
+  
       // Obter URL pública (sincrônico)
       const { data: urlData } = supabase.storage
         .from("photos")
         .getPublicUrl(fileName);
-
+  
       // Registrar no banco de dados
       const { error: dbError } = await supabase.from("photos").insert([
         {
@@ -83,22 +86,22 @@ export const CheckIn = ({ distance }: { distance: number }) => {
           timestamp: new Date().toISOString(),
         },
       ]);
-
+  
       if (dbError)
         throw new Error(`Erro no banco de dados: ${dbError.message}`);
-
+  
       setSuccessMessage("Foto registrada com sucesso!");
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
-      // Delay para garantir que o iOS processe o upload
       setTimeout(() => {
         setIsProcessing(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
       }, 1000);
     }
   };
+  
 
   return (
     <div className="mt-4">
