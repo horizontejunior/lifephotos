@@ -64,10 +64,9 @@ export const CheckIn = ({ distance }: { distance: number }) => {
         .from("photos")
         .upload(fileName, file, {
           contentType: file.type,
-          cacheControl: "public, max-age=31536000",
+          cacheControl: "public",
         });
-      console.log("passou aqui");
-      
+           
       if (uploadError)
         throw new Error(`Erro no upload: ${uploadError.message}`);
 
