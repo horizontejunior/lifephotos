@@ -3,17 +3,19 @@ import { useState, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { Stations } from "./stations";
 
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+ 
 export const CheckIn = ({ distance }: { distance: number }) => {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-
+  
   const defaultStation = {
     name: Stations.name,
     latitude: 0,
@@ -24,7 +26,7 @@ export const CheckIn = ({ distance }: { distance: number }) => {
     setError(null);
     setSuccessMessage(null);
 
-    // Reinicia o input antes de disparar o click
+
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
       fileInputRef.current.click();
@@ -42,7 +44,7 @@ export const CheckIn = ({ distance }: { distance: number }) => {
     try {
       console.log("Passou aqui: iniciando processamento da foto");
 
-      // Define o mimeType e a extensão
+
       const mimeType = file.type || "image/jpeg";
       const extFromName = file.name.split(".").pop()?.toLowerCase();
       const ext = extFromName || mimeType.split("/")[1] || "jpg";
@@ -57,7 +59,7 @@ export const CheckIn = ({ distance }: { distance: number }) => {
         fileName
       );
 
-      // Faz o upload para o Supabase Storage
+
       const { error: uploadError } = await supabase.storage
         .from("photos")
         .upload(fileName, file, {
@@ -68,12 +70,11 @@ export const CheckIn = ({ distance }: { distance: number }) => {
       if (uploadError)
         throw new Error(`Erro no upload: ${uploadError.message}`);
 
-      // Obtém a URL pública do arquivo
+
       const { data: urlData } = supabase.storage
         .from("photos")
         .getPublicUrl(fileName);
 
-      // Registra os dados no banco
       const { error: dbError } = await supabase.from("photos").insert([
         {
           station_name: defaultStation.name,
@@ -91,7 +92,7 @@ export const CheckIn = ({ distance }: { distance: number }) => {
       console.error(err);
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
-      // Reinicia o estado e o input sem depender de delay fixo
+
       setIsProcessing(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
