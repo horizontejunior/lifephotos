@@ -13,7 +13,6 @@ export const CheckIn = ({ distance }: { distance: number }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Em uma implementação real, a estação pode ser obtida via geolocalização ou outro método.
   const defaultStation = {
     name: "default_station",
     latitude: 0,
@@ -25,7 +24,7 @@ export const CheckIn = ({ distance }: { distance: number }) => {
     setSuccessMessage(null);
 
     try {
-      // Forçar novo input file para dispositivos iOS
+
       if (fileInputRef.current) fileInputRef.current.value = "";
       setTimeout(() => {
         if (fileInputRef.current) {
@@ -44,32 +43,29 @@ export const CheckIn = ({ distance }: { distance: number }) => {
   const handleFileChange = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
-    // Se não houver arquivo, não processa
+
     if (!event.target.files?.[0]) return;
 
     setIsProcessing(true);
     const file = event.target.files[0];
 
     try {
-      // Console.log para debug: Verifica se a função está sendo chamada
+
       console.log("Passou aqui: iniciando processamento da foto");
 
-      // Verifica se file.type está definido; se não, usa "image/jpeg" como padrão
       const mimeType = file.type || "image/jpeg";
-      // Tenta extrair a extensão do file.name, se houver
+  
       const extFromName = file.name.split(".").pop()?.toLowerCase();
       const ext = extFromName || mimeType.split("/")[1] || "jpg";
 
-      // Sanitiza o nome da estação e constrói o nome do arquivo
+
       const cleanStationName = defaultStation.name
         .replace(/[^a-zA-Z0-9]/g, "_")
         .toLowerCase();
       const fileName = `${cleanStationName}_${Date.now()}.${ext}`;
 
-      // Adiciona log para verificar antes de enviar para o bucket
       console.log("Passou aqui: iniciando o upload para o bucket com arquivo:", fileName);
 
-      // Upload para o Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from("photos")
         .upload(fileName, file, {
@@ -80,12 +76,12 @@ export const CheckIn = ({ distance }: { distance: number }) => {
       if (uploadError)
         throw new Error(`Erro no upload: ${uploadError.message}`);
 
-      // Obter URL pública (sincrônico)
+
       const { data: urlData } = supabase.storage
         .from("photos")
         .getPublicUrl(fileName);
 
-      // Registrar no banco de dados
+
       const { error: dbError } = await supabase.from("photos").insert([
         {
           station_name: defaultStation.name,
@@ -102,7 +98,7 @@ export const CheckIn = ({ distance }: { distance: number }) => {
       console.error(err);
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
-      // Delay para garantir que o iOS processe o upload
+
       setTimeout(() => {
         setIsProcessing(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
@@ -135,7 +131,7 @@ export const CheckIn = ({ distance }: { distance: number }) => {
       <input
         type="file"
         accept="image/*"
-        capture="user"  // Força o uso da câmera
+        capture="user" 
         ref={fileInputRef}
         onChange={handleFileChange}
         className="hidden"
