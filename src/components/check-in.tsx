@@ -26,11 +26,10 @@ export const CheckIn = ({ distance }: { distance: number }) => {
     try {
 
       if (fileInputRef.current) fileInputRef.current.value = "";
-      setTimeout(() => {
         if (fileInputRef.current) {
           fileInputRef.current.click();
         }
-      }, 100);
+
     } catch (err) {
       setError(
         err instanceof Error
@@ -131,7 +130,7 @@ export const CheckIn = ({ distance }: { distance: number }) => {
       <input
         type="file"
         accept="image/*"
-        capture="user" 
+        capture="user"
         ref={fileInputRef}
         onChange={handleFileChange}
         className="hidden"

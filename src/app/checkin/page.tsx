@@ -27,7 +27,7 @@ export default function ChooseStation() {
         const { data, error } = await supabase
           .from("station")
           .select("name, latitude, longitude");
-
+        
         if (error) throw error;
         setStations(data || []);
       } catch (err) {
@@ -38,21 +38,14 @@ export default function ChooseStation() {
     fetchStations();
   }, []);
 
-  const calculateDistance = (
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number
-  ) => {
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371e3;
-    const φ1 = (lat1 * Math.PI) / 180;
-    const φ2 = (lat2 * Math.PI) / 180;
-    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+    const φ1 = lat1 * Math.PI/180;
+    const φ2 = lat2 * Math.PI/180;
+    const Δφ = (lat2 - lat1) * Math.PI/180;
+    const Δλ = (lon2 - lon1) * Math.PI/180;
 
-    const a =
-      Math.sin(Δφ / 2) ** 2 +
-      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+    const a = Math.sin(Δφ/2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) ** 2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
@@ -61,15 +54,13 @@ export default function ChooseStation() {
     setSuccessMessage(null);
 
     try {
-      const position = await new Promise<GeolocationPosition>(
-        (resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(
-            resolve,
-            (err) => reject(err.message),
-            { enableHighAccuracy: true, timeout: 10000 }
-          );
-        }
-      );
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          resolve,
+          err => reject(err.message),
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      });
 
       const distance = calculateDistance(
         position.coords.latitude,
@@ -82,82 +73,70 @@ export default function ChooseStation() {
         alert(`Você está a ${distance.toFixed(1)} metros do posto.`);
         return;
       }
-
-      // Forçar novo input file para dispositivos iOS
-      if (fileInputRef.current) fileInputRef.current.value = "";
-
+      
       setSelectedStation(station);
-      // setTimeout(() => {
-      //   if (fileInputRef.current) {
-      //     fileInputRef.current.click();
-      //   }
-      // }, 100);
-      fileInputRef.current?.click();
+      setTimeout(() => {
+        if (fileInputRef.current) {
+          fileInputRef.current.click();
+        }
+      }, 100);
+
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Erro desconhecido na geolocalização"
-      );
+      setError(err instanceof Error ? err.message : "Erro desconhecido na geolocalização");
     }
   };
 
-  const handleFileChange = async (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!selectedStation || !event.target.files?.[0]) return;
 
     setIsProcessing(true);
     const file = event.target.files[0];
-
+    
     try {
       // Sanitização do nome do arquivo
       const cleanStationName = selectedStation.name
-        .replace(/[^a-zA-Z0-9]/g, "_")
+        .replace(/[^a-zA-Z0-9]/g, '_')
         .toLowerCase();
-
-      const fileName = `${cleanStationName}_${Date.now()}.${
-        file.type.split("/")[1] || "jpg"
-      }`;
+      
+      const fileName = `${cleanStationName}_${Date.now()}.${file.type.split('/')[1] || 'jpg'}`;
 
       // Upload para o Supabase Storage
       const { error: uploadError } = await supabase.storage
-        .from("photos")
+        .from('photos')
         .upload(fileName, file, {
           contentType: file.type,
-          cacheControl: "public, max-age=31536000",
+          cacheControl: 'public',
         });
 
-      if (uploadError)
-        throw new Error(`Erro no upload: ${uploadError.message}`);
+      if (uploadError) throw new Error(`Erro no upload: ${uploadError.message}`);
 
       // Obter URL pública
       const { data: urlData } = supabase.storage
-        .from("photos")
+        .from('photos')
         .getPublicUrl(fileName);
 
       // Registrar no banco de dados
-      const { error: dbError } = await supabase.from("photos").insert([
-        {
+      const { error: dbError } = await supabase
+        .from('photos')
+        .insert([{
           station_name: selectedStation.name,
           photo_url: urlData.publicUrl,
-          timestamp: new Date().toISOString(),
-        },
-      ]);
+          timestamp: new Date().toISOString()
+        }]);
 
-      if (dbError)
-        throw new Error(`Erro no banco de dados: ${dbError.message}`);
+      if (dbError) throw new Error(`Erro no banco de dados: ${dbError.message}`);
 
-      setSuccessMessage("Foto registrada com sucesso!");
+      setSuccessMessage('Foto registrada com sucesso!');
+      
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : "Erro desconhecido");
+      setError(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
       // Delay para garantir que o iOS processe o upload
       setTimeout(() => {
         setIsProcessing(false);
         setSelectedStation(null);
-        if (fileInputRef.current) fileInputRef.current.value = "";
+        if (fileInputRef.current) fileInputRef.current.value = '';
       }, 1000);
     }
   };
@@ -165,13 +144,13 @@ export default function ChooseStation() {
   return (
     <div className="p-4 max-w-xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">Postos de Guarda-Vidas</h1>
-
+      
       {error && (
         <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
           ⚠️ {error}
         </div>
       )}
-
+      
       {successMessage && (
         <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-lg">
           ✅ {successMessage}
@@ -195,6 +174,7 @@ export default function ChooseStation() {
       <input
         type="file"
         accept="image/*"
+        capture="environment"
         ref={fileInputRef}
         onChange={handleFileChange}
         className="hidden"
