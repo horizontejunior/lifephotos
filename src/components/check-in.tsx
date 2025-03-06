@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { Stations } from "./stations";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,73 +15,65 @@ export const CheckIn = ({ distance }: { distance: number }) => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const defaultStation = {
-    name: "default_station",
+    name: Stations.name,
     latitude: 0,
     longitude: 0,
   };
 
-  const handleSelectStation = async () => {
+  const handleSelectStation = () => {
     setError(null);
     setSuccessMessage(null);
 
-    try {
-
-      if (fileInputRef.current) fileInputRef.current.value = "";
-        if (fileInputRef.current) {
-          fileInputRef.current.click();
-        }
-
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Erro desconhecido na geolocalização"
-      );
+    // Reinicia o input antes de disparar o click
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+      fileInputRef.current.click();
     }
   };
 
   const handleFileChange = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
-
     if (!event.target.files?.[0]) return;
 
     setIsProcessing(true);
     const file = event.target.files[0];
 
     try {
-
       console.log("Passou aqui: iniciando processamento da foto");
 
+      // Define o mimeType e a extensão
       const mimeType = file.type || "image/jpeg";
-  
       const extFromName = file.name.split(".").pop()?.toLowerCase();
       const ext = extFromName || mimeType.split("/")[1] || "jpg";
-
 
       const cleanStationName = defaultStation.name
         .replace(/[^a-zA-Z0-9]/g, "_")
         .toLowerCase();
       const fileName = `${cleanStationName}_${Date.now()}.${ext}`;
 
-      console.log("Passou aqui: iniciando o upload para o bucket com arquivo:", fileName);
+      console.log(
+        "Passou aqui: iniciando o upload para o bucket com arquivo:",
+        fileName
+      );
 
+      // Faz o upload para o Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from("photos")
         .upload(fileName, file, {
           contentType: mimeType,
           cacheControl: "public",
         });
-      
+
       if (uploadError)
         throw new Error(`Erro no upload: ${uploadError.message}`);
 
-
+      // Obtém a URL pública do arquivo
       const { data: urlData } = supabase.storage
         .from("photos")
         .getPublicUrl(fileName);
 
-
+      // Registra os dados no banco
       const { error: dbError } = await supabase.from("photos").insert([
         {
           station_name: defaultStation.name,
@@ -93,15 +86,14 @@ export const CheckIn = ({ distance }: { distance: number }) => {
         throw new Error(`Erro no banco de dados: ${dbError.message}`);
 
       setSuccessMessage("Foto registrada com sucesso!");
+      console.log("Passou aqui: upload e registro concluídos");
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
-
-      setTimeout(() => {
-        setIsProcessing(false);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-      }, 1000);
+      // Reinicia o estado e o input sem depender de delay fixo
+      setIsProcessing(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -110,7 +102,7 @@ export const CheckIn = ({ distance }: { distance: number }) => {
       <button
         onClick={handleSelectStation}
         className="bg-blue-500 text-white px-4 py-2 rounded-md disabled:opacity-50"
-        disabled={!!(distance && 800 <= distance) || !distance}
+        disabled={!!(distance && 800 <= distance) || !distance || isProcessing}
       >
         Check-In
       </button>
