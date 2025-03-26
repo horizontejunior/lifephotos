@@ -74,7 +74,7 @@ export default function LoginPage() {
 
         {/* Link para a página de cadastro */}
         <p className="mt-4 text-center text-gray-600">
-          Ainda não tem conta{" "}
+          Ainda não tem conta!!!!{" "}
           <Link href="/register" className="text-blue-500 hover:underline">
             Crie aqui!!!!
           </Link>
